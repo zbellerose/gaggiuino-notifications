@@ -37,14 +37,22 @@ const MAX_UPTIME_MS = parseInt(process.env.MAX_UPTIME_MS) || 45 * 60 * 1000;
 // Uptime monitoring toggle
 const UPTIME_EXCEEDED_ENABLED = process.env.UPTIME_EXCEEDED_ENABLED === 'true';
 
+// Constants
+const MAX_UPTIME_MINUTES = MAX_UPTIME_MS / 60000;
+const RESTART_DELAY_SECONDS = RESTART_DELAY_MS / 1000;
+
 const client = new twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
+// State management
 let notificationSent = false; // Flag to ensure notification is sent only once
 let isMachineOnline = false; // Track machine online/offline status
 let currentIntervalId = null; // Track current interval
 let uptimeStartTime = null; // Track when machine came online
 let uptimeNotificationSent = false; // Flag to ensure uptime notification is sent only once
 
+/**
+ * Send Discord notification via webhook
+ */
 async function sendDiscordNotification(message) {
   if (!DISCORD_ENABLED || !DISCORD_WEBHOOK_URL) {
     console.log("Discord notifications disabled or webhook URL not configured");
@@ -68,6 +76,9 @@ async function sendDiscordNotification(message) {
   }
 }
 
+/**
+ * Send SMS notification via Twilio
+ */
 async function sendSmsNotification(message) {
   if (!TWILIO_ENABLED) {
     console.log("Twilio SMS notifications disabled");
@@ -89,14 +100,76 @@ async function sendSmsNotification(message) {
   }
 }
 
+/**
+ * Send both Discord and SMS notifications
+ */
 async function sendNotification(message) {
-  // Send both Discord and SMS notifications
   await Promise.all([
     sendDiscordNotification(message),
     sendSmsNotification(message)
   ]);
 }
 
+/**
+ * Reset all monitoring state
+ */
+function resetMonitoringState() {
+  notificationSent = false;
+  isMachineOnline = false;
+  uptimeStartTime = null;
+  uptimeNotificationSent = false;
+}
+
+/**
+ * Handle machine coming online
+ */
+function handleMachineOnline() {
+  console.log("Coffee machine is now online!");
+  isMachineOnline = true;
+  uptimeStartTime = Date.now();
+  uptimeNotificationSent = false;
+  restartPolling(ONLINE_POLLING_INTERVAL_MS);
+}
+
+/**
+ * Handle machine going offline
+ */
+function handleMachineOffline() {
+  console.log("Coffee machine went offline. Switching to slower polling...");
+  isMachineOnline = false;
+  uptimeStartTime = null;
+  uptimeNotificationSent = false;
+  restartPolling(OFFLINE_POLLING_INTERVAL_MS);
+}
+
+/**
+ * Check if uptime limit has been exceeded
+ */
+function checkUptimeLimit(uptimeMinutes) {
+  if (!UPTIME_EXCEEDED_ENABLED || uptimeNotificationSent) {
+    return false;
+  }
+  
+  if (uptimeMinutes > MAX_UPTIME_MINUTES) {
+    console.log(`⚠️ Machine has been running for ${uptimeMinutes} minutes (max: ${MAX_UPTIME_MINUTES} minutes)`);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Check if temperature is within target range
+ */
+function isTemperatureInRange(currentTemp, targetTemp) {
+  const lowerBound = targetTemp - TEMPERATURE_VARIANCE;
+  const upperBound = targetTemp + TEMPERATURE_VARIANCE;
+  return currentTemp >= lowerBound && currentTemp <= upperBound;
+}
+
+/**
+ * Check coffee machine status and handle state changes
+ */
 async function checkCoffeeMachineStatus() {
   try {
     const response = await axios.get(COFFEE_MACHINE_API_URL);
@@ -108,19 +181,13 @@ async function checkCoffeeMachineStatus() {
       const targetTemp = parseFloat(targetTemperature);
       const uptimeMinutes = parseInt(upTime);
 
-      // Machine is online and responding
+      // Handle machine coming online
       if (!isMachineOnline) {
-        console.log("Coffee machine is now online!");
-        isMachineOnline = true;
-        uptimeStartTime = Date.now(); // Start tracking uptime
-        uptimeNotificationSent = false; // Reset uptime notification flag
-        // Restart polling with faster interval
-        restartPolling(ONLINE_POLLING_INTERVAL_MS);
+        handleMachineOnline();
       }
 
-      // Check uptime and send notification if exceeded
-      if (UPTIME_EXCEEDED_ENABLED && uptimeMinutes > (MAX_UPTIME_MS / 60000) && !uptimeNotificationSent) {
-        console.log(`⚠️ Machine has been running for ${uptimeMinutes} minutes (max: ${MAX_UPTIME_MS / 60000} minutes)`);
+      // Check uptime limit
+      if (checkUptimeLimit(uptimeMinutes)) {
         await sendNotification(`⚠️ Your coffee machine has been running for ${uptimeMinutes} minutes. Consider turning it off to save energy.`);
         uptimeNotificationSent = true;
       }
@@ -129,16 +196,13 @@ async function checkCoffeeMachineStatus() {
         `Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${TEMPERATURE_VARIANCE}°C), Uptime: ${uptimeMinutes} minutes`
       );
 
-      // Check if current temperature is within the variance range of target temperature
-      const lowerBound = targetTemp - TEMPERATURE_VARIANCE;
-      const upperBound = targetTemp + TEMPERATURE_VARIANCE;
-      
-      if (currentTemp >= lowerBound && currentTemp <= upperBound && !notificationSent) {
-        console.log(`Coffee machine is within target temperature range (${lowerBound}°C - ${upperBound}°C)!`);
+      // Check if target temperature is reached
+      if (isTemperatureInRange(currentTemp, targetTemp) && !notificationSent) {
+        console.log(`Coffee machine is within target temperature range!`);
         await sendNotification("Hey! Your machine is at the target temp.");
-        notificationSent = true; // Set flag to true after sending
+        notificationSent = true;
         console.log("Stopping polling as target temperature is reached.");
-        return true; // Indicate that target temp is reached
+        return true;
       }
     }
     return false;
@@ -146,27 +210,22 @@ async function checkCoffeeMachineStatus() {
     if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
       // Machine is offline
       if (isMachineOnline) {
-        console.log("Coffee machine went offline. Switching to slower polling...");
-        isMachineOnline = false;
-        uptimeStartTime = null; // Reset uptime tracking
-        uptimeNotificationSent = false; // Reset uptime notification flag
-        // Restart polling with slower interval
-        restartPolling(OFFLINE_POLLING_INTERVAL_MS);
+        handleMachineOffline();
       } else {
         console.log(
           `Coffee machine API at ${COFFEE_MACHINE_API_URL} is currently offline. Retrying...`
         );
       }
     } else {
-      console.error(
-        "Error fetching coffee machine status:",
-        error.message
-      );
+      console.error("Error fetching coffee machine status:", error.message);
     }
     return false;
   }
 }
 
+/**
+ * Restart polling with new interval
+ */
 function restartPolling(newInterval) {
   if (currentIntervalId) {
     clearInterval(currentIntervalId);
@@ -175,30 +234,33 @@ function restartPolling(newInterval) {
   console.log(`Polling interval changed to ${newInterval / 1000} seconds`);
 }
 
+/**
+ * Main polling function
+ */
+async function poll() {
+  const targetReached = await checkCoffeeMachineStatus();
+  if (targetReached) {
+    if (currentIntervalId) {
+      clearInterval(currentIntervalId);
+      currentIntervalId = null;
+    }
+    
+    console.log(`Target temperature reached! Starting ${RESTART_DELAY_SECONDS} second timer...`);
+    
+    setTimeout(() => {
+      console.log(`${RESTART_DELAY_SECONDS} seconds have passed. Restarting monitoring...`);
+      resetMonitoringState();
+      startMonitoring();
+    }, RESTART_DELAY_MS);
+  }
+}
+
+/**
+ * Start the monitoring process
+ */
 async function startMonitoring() {
   console.log(`Starting coffee machine monitoring for ${COFFEE_MACHINE_API_URL}...`);
   console.log(`Initial polling interval: ${OFFLINE_POLLING_INTERVAL_MS / 1000} seconds (machine assumed offline)`);
-
-  const poll = async () => {
-    const targetReached = await checkCoffeeMachineStatus();
-    if (targetReached) {
-      if (currentIntervalId) {
-        clearInterval(currentIntervalId);
-        currentIntervalId = null;
-      }
-      
-      console.log(`Target temperature reached! Starting ${RESTART_DELAY_MS / 1000} second timer...`);
-      
-      setTimeout(() => {
-        console.log(`${RESTART_DELAY_MS / 1000} seconds have passed. Restarting monitoring...`);
-        notificationSent = false;
-        isMachineOnline = false;
-        uptimeStartTime = null;
-        uptimeNotificationSent = false;
-        startMonitoring();
-      }, RESTART_DELAY_MS);
-    }
-  };
 
   // Initial check immediately
   await poll();
