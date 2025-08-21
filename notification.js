@@ -191,7 +191,8 @@ async function checkCoffeeMachineStatus() {
       const { temperature, targetTemperature, upTime } = data[0];
       const currentTemp = parseFloat(temperature);
       const targetTemp = parseFloat(targetTemperature);
-      const uptimeMinutes = parseInt(upTime);
+      const uptimeSeconds = parseInt(upTime);
+      const uptimeMinutes = Math.round(uptimeSeconds / 60);
 
       // Handle machine coming online
       if (!isMachineOnline) {
@@ -205,7 +206,7 @@ async function checkCoffeeMachineStatus() {
       }
 
       debugLog(
-        `Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${TEMPERATURE_VARIANCE}°C), Uptime: ${uptimeMinutes} minutes`
+        `Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${TEMPERATURE_VARIANCE}°C), Uptime: ${uptimeMinutes} minutes (${uptimeSeconds} seconds)`
       );
 
       // Check if target temperature is reached
