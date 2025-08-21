@@ -6,17 +6,21 @@ const {
   TEMPERATURE_VARIANCE,
   DISCORD_ENABLED,
   TWILIO_ENABLED,
-  DISCORD_WEBHOOK_URL
+  DISCORD_WEBHOOK_URL,
+  MAX_UPTIME_MS,
+  UPTIME_EXCEEDED_ENABLED
 } = require('./notification.js');
 
 // Test configuration
 let notificationSent = false;
+let uptimeNotificationSent = false;
 
 // Simulated coffee machine data
 let simulatedData = {
   temperature: 20,
   targetTemperature: 95,
-  online: false
+  online: false,
+  upTime: 0
 };
 
 // --- Simulated coffee machine status check ---
@@ -31,19 +35,28 @@ async function simulateCoffeeMachineStatus() {
 
   const currentTemp = simulatedData.temperature;
   const targetTemp = simulatedData.targetTemperature;
+  const uptimeMinutes = simulatedData.upTime;
   const variance = TEMPERATURE_VARIANCE; // Use the actual variance from notification.js
   const lowerBound = targetTemp - variance;
   const upperBound = targetTemp + variance;
 
   console.log(
-    `🌡️ [SIM] Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${variance}°C)`
+    `🌡️ [SIM] Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${variance}°C), Uptime: ${uptimeMinutes} minutes`
   );
+
+  // Check uptime and send notification if exceeded (same logic as notification.js)
+  if (UPTIME_EXCEEDED_ENABLED && uptimeMinutes > (MAX_UPTIME_MS / 60000) && !uptimeNotificationSent) {
+    console.log(`⚠️ [SIM] Machine has been running for ${uptimeMinutes} minutes (max: ${MAX_UPTIME_MS / 60000} minutes)`);
+    await sendNotification(`⚠️ Your coffee machine has been running for ${uptimeMinutes} minutes. Consider turning it off to save energy.`);
+    uptimeNotificationSent = true;
+    console.log("✅ [SIM] Uptime warning notification sent!");
+  }
 
   if (currentTemp >= lowerBound && currentTemp <= upperBound && !notificationSent) {
     console.log(`🎯 [SIM] TARGET REACHED! Temperature ${currentTemp}°C is within range!`);
     await sendNotification("Hey! Your machine is at the target temp.");
     notificationSent = true;
-    console.log("✅ [SIM] Notification sent successfully!");
+    console.log("✅ [SIM] Temperature notification sent successfully!");
     return true;
   }
 
@@ -72,9 +85,25 @@ function setSimulatedOnline(status) {
   console.log(`🔌 [SIM] Online status: ${simulatedData.online ? 'Online' : 'Offline'}`);
 }
 
+function setSimulatedUptime(minutes) {
+  simulatedData.upTime = parseInt(minutes);
+  console.log(`⏰ [SIM] Uptime set to: ${simulatedData.upTime} minutes`);
+}
+
 function resetNotificationFlag() {
   notificationSent = false;
-  console.log("🔄 [SIM] Notification flag reset");
+  console.log("🔄 [SIM] Temperature notification flag reset");
+}
+
+function resetUptimeNotificationFlag() {
+  uptimeNotificationSent = false;
+  console.log("🔄 [SIM] Uptime notification flag reset");
+}
+
+function resetAllFlags() {
+  notificationSent = false;
+  uptimeNotificationSent = false;
+  console.log("🔄 [SIM] All notification flags reset");
 }
 
 function showSimulatedStatus() {
@@ -82,7 +111,11 @@ function showSimulatedStatus() {
   console.log(`   Temperature: ${simulatedData.temperature}°C`);
   console.log(`   Target: ${simulatedData.targetTemperature}°C`);
   console.log(`   Online: ${simulatedData.online ? 'Yes' : 'No'}`);
-  console.log(`   Notification Sent: ${notificationSent ? 'Yes' : 'No'}`);
+  console.log(`   Uptime: ${simulatedData.upTime} minutes`);
+  console.log(`   Temperature Notification Sent: ${notificationSent ? 'Yes' : 'No'}`);
+  console.log(`   Uptime Notification Sent: ${uptimeNotificationSent ? 'Yes' : 'No'}`);
+  console.log(`   Uptime Monitoring Enabled: ${UPTIME_EXCEEDED_ENABLED ? 'Yes' : 'No'}`);
+  console.log(`   Max Uptime: ${MAX_UPTIME_MS / 60000} minutes`);
 }
 
 // --- Individual notification tests ---
@@ -101,16 +134,80 @@ async function testBothNotifications() {
   await sendNotification("🧪 Test notification using sendNotification() function!");
 }
 
+// --- Uptime testing functions ---
+async function testUptimeWarning() {
+  console.log("\n⏰ Testing uptime warning notification...");
+  
+  if (!UPTIME_EXCEEDED_ENABLED) {
+    console.log("❌ Uptime monitoring is disabled. Enable it in your .env file first.");
+    return;
+  }
+  
+  // Reset flags
+  resetAllFlags();
+  
+  // Set machine online with high uptime
+  setSimulatedOnline(true);
+  setSimulatedUptime(50); // 50 minutes (above 45 minute limit)
+  
+  // This should trigger uptime warning
+  await simulateCoffeeMachineStatus();
+  
+  console.log("✅ Uptime warning test completed!");
+}
+
+async function testUptimeMonitoringDisabled() {
+  console.log("\n⏰ Testing uptime monitoring when disabled...");
+  
+  // Reset flags
+  resetAllFlags();
+  
+  // Set machine online with high uptime
+  setSimulatedOnline(true);
+  setSimulatedUptime(50); // 50 minutes
+  
+  // Simulate status check
+  await simulateCoffeeMachineStatus();
+  
+  if (uptimeNotificationSent) {
+    console.log("❌ Uptime notification was sent when it should be disabled");
+  } else {
+    console.log("✅ Uptime notification correctly suppressed when disabled");
+  }
+}
+
+async function testUptimeBelowLimit() {
+  console.log("\n⏰ Testing uptime below warning limit...");
+  
+  // Reset flags
+  resetAllFlags();
+  
+  // Set machine online with acceptable uptime
+  setSimulatedOnline(true);
+  setSimulatedUptime(30); // 30 minutes (below 45 minute limit)
+  
+  // This should NOT trigger uptime warning
+  await simulateCoffeeMachineStatus();
+  
+  if (uptimeNotificationSent) {
+    console.log("❌ Uptime notification was sent when uptime was below limit");
+  } else {
+    console.log("✅ Uptime notification correctly suppressed when uptime is acceptable");
+  }
+}
+
 // --- Full brew cycle simulation ---
 async function simulateBrewCycle() {
   console.log("\n🚀 Starting simulated brew cycle...");
   
-  // Reset notification flag
+  // Reset notification flags
   resetNotificationFlag();
+  resetUptimeNotificationFlag();
   
   // Start cold and offline
   setSimulatedTemperature(20);
   setSimulatedOnline(false);
+  setSimulatedUptime(0); // Reset uptime
   
   // Phase 1: Machine comes online and starts heating
   console.log("\n🔥 Phase 1: Machine coming online and heating up");
@@ -155,9 +252,17 @@ async function runTests() {
   console.log("📋 Current Configuration:");
   console.log(`   Discord: ${DISCORD_ENABLED ? '✅ Enabled' : '❌ Disabled'}`);
   console.log(`   Twilio SMS: ${TWILIO_ENABLED ? '✅ Enabled' : '❌ Disabled'}`);
-  console.log(`   Webhook URL: ${DISCORD_WEBHOOK_URL ? '✅ Configured' : '❌ Not configured'}\n`);
+  console.log(`   Webhook URL: ${DISCORD_WEBHOOK_URL ? '✅ Configured' : '❌ Not configured'}`);
+  console.log(`   Uptime Monitoring: ${UPTIME_EXCEEDED_ENABLED ? '✅ Enabled' : '❌ Disabled'}`);
+  console.log(`   Max Uptime: ${MAX_UPTIME_MS / 60000} minutes\n`);
   
-  // Run the full simulation
+  // Run uptime tests first
+  console.log("⏰ Testing Uptime Monitoring Features...");
+  await testUptimeBelowLimit();
+  await testUptimeWarning();
+  await testUptimeMonitoringDisabled();
+  
+  console.log("\n🚀 Running Full Brew Cycle Simulation...");
   await simulateBrewCycle();
   
   console.log("\n✅ All tests completed!");
@@ -174,10 +279,16 @@ module.exports = {
   setSimulatedTemperature,
   setSimulatedTarget,
   setSimulatedOnline,
+  setSimulatedUptime,
   resetNotificationFlag,
+  resetUptimeNotificationFlag,
+  resetAllFlags,
   showSimulatedStatus,
   testDiscordOnly,
   testSMSOnly,
   testBothNotifications,
-  simulateBrewCycle
+  simulateBrewCycle,
+  testUptimeWarning,
+  testUptimeMonitoringDisabled,
+  testUptimeBelowLimit
 };

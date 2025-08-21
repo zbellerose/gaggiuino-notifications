@@ -28,13 +28,22 @@ const TEMPERATURE_VARIANCE = parseFloat(process.env.TEMPERATURE_VARIANCE) || 0.5
 const ONLINE_POLLING_INTERVAL_MS = parseInt(process.env.ONLINE_POLLING_INTERVAL_MS) || 5 * 1000;
 const OFFLINE_POLLING_INTERVAL_MS = parseInt(process.env.OFFLINE_POLLING_INTERVAL_MS) || 30 * 1000;
 
+// Restart delay after notification (30 minutes default)
 const RESTART_DELAY_MS = parseInt(process.env.RESTART_DELAY_MS) || 30 * 60 * 1000;
+
+// Uptime monitoring (45 minutes default)
+const MAX_UPTIME_MS = parseInt(process.env.MAX_UPTIME_MS) || 45 * 60 * 1000;
+
+// Uptime monitoring toggle
+const UPTIME_EXCEEDED_ENABLED = process.env.UPTIME_EXCEEDED_ENABLED === 'true';
 
 const client = new twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
 let notificationSent = false; // Flag to ensure notification is sent only once
 let isMachineOnline = false; // Track machine online/offline status
 let currentIntervalId = null; // Track current interval
+let uptimeStartTime = null; // Track when machine came online
+let uptimeNotificationSent = false; // Flag to ensure uptime notification is sent only once
 
 async function sendDiscordNotification(message) {
   if (!DISCORD_ENABLED || !DISCORD_WEBHOOK_URL) {
@@ -94,20 +103,30 @@ async function checkCoffeeMachineStatus() {
     const data = response.data;
 
     if (Array.isArray(data) && data.length > 0) {
-      const { temperature, targetTemperature } = data[0];
+      const { temperature, targetTemperature, upTime } = data[0];
       const currentTemp = parseFloat(temperature);
       const targetTemp = parseFloat(targetTemperature);
+      const uptimeMinutes = parseInt(upTime);
 
       // Machine is online and responding
       if (!isMachineOnline) {
         console.log("Coffee machine is now online!");
         isMachineOnline = true;
+        uptimeStartTime = Date.now(); // Start tracking uptime
+        uptimeNotificationSent = false; // Reset uptime notification flag
         // Restart polling with faster interval
         restartPolling(ONLINE_POLLING_INTERVAL_MS);
       }
 
+      // Check uptime and send notification if exceeded
+      if (UPTIME_EXCEEDED_ENABLED && uptimeMinutes > (MAX_UPTIME_MS / 60000) && !uptimeNotificationSent) {
+        console.log(`⚠️ Machine has been running for ${uptimeMinutes} minutes (max: ${MAX_UPTIME_MS / 60000} minutes)`);
+        await sendNotification(`⚠️ Your coffee machine has been running for ${uptimeMinutes} minutes. Consider turning it off to save energy.`);
+        uptimeNotificationSent = true;
+      }
+
       console.log(
-        `Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${TEMPERATURE_VARIANCE}°C)`
+        `Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${TEMPERATURE_VARIANCE}°C), Uptime: ${uptimeMinutes} minutes`
       );
 
       // Check if current temperature is within the variance range of target temperature
@@ -122,13 +141,15 @@ async function checkCoffeeMachineStatus() {
         return true; // Indicate that target temp is reached
       }
     }
-    return false; // Indicate that target temp is not yet reached
+    return false;
   } catch (error) {
     if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
       // Machine is offline
       if (isMachineOnline) {
         console.log("Coffee machine went offline. Switching to slower polling...");
         isMachineOnline = false;
+        uptimeStartTime = null; // Reset uptime tracking
+        uptimeNotificationSent = false; // Reset uptime notification flag
         // Restart polling with slower interval
         restartPolling(OFFLINE_POLLING_INTERVAL_MS);
       } else {
@@ -172,6 +193,8 @@ async function startMonitoring() {
         console.log(`${RESTART_DELAY_MS / 1000} seconds have passed. Restarting monitoring...`);
         notificationSent = false;
         isMachineOnline = false;
+        uptimeStartTime = null;
+        uptimeNotificationSent = false;
         startMonitoring();
       }, RESTART_DELAY_MS);
     }
@@ -200,5 +223,7 @@ module.exports = {
   TWILIO_ACCOUNT_SID,
   TWILIO_AUTH_TOKEN,
   TWILIO_PHONE_NUMBER,
-  YOUR_PHONE_NUMBER
+  YOUR_PHONE_NUMBER,
+  MAX_UPTIME_MS,
+  UPTIME_EXCEEDED_ENABLED
 };
