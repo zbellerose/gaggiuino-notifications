@@ -69,6 +69,9 @@ MAX_UPTIME_MS=2700000
 
 # Enable/disable uptime exceeded notifications
 UPTIME_EXCEEDED_ENABLED=true
+
+# Debug Settings
+DEBUG=false                    # Set to 'true' for verbose logging
 ```
 
 ## 🔗 Discord Webhook Setup
@@ -251,11 +254,20 @@ RESTART_DELAY_MS=3600000 # 1 hour
 
 ### Debug Mode
 
-Enable detailed logging by checking console output:
+Enable detailed logging by setting `DEBUG=true` in your `.env` file. This will show:
 - Machine online/offline status
 - Temperature readings and variance calculations
 - Uptime tracking
 - Notification sending status
+- Polling interval changes
+- Detailed API responses
+
+**Example debug output:**
+```
+[DEBUG] Current Temp: 85°C, Target Temp: 90°C (Variance: ±0.5°C), Uptime: 15 minutes
+[DEBUG] Polling interval changed to 5 seconds
+[DEBUG] Coffee machine API is currently offline. Retrying...
+```
 
 ## 📁 File Structure
 

@@ -21,6 +21,9 @@ const DISCORD_USER_ID = process.env.DISCORD_USER_ID;
 const DISCORD_ENABLED = process.env.DISCORD_ENABLED === 'true';
 const TWILIO_ENABLED = process.env.TWILIO_ENABLED === 'true';
 
+// Debug Settings
+const DEBUG_ENABLED = process.env.DEBUG === 'true';
+
 // Temperature Settings
 const TEMPERATURE_VARIANCE = parseFloat(process.env.TEMPERATURE_VARIANCE) || 0.5;
 
@@ -51,11 +54,20 @@ let uptimeStartTime = null; // Track when machine came online
 let uptimeNotificationSent = false; // Flag to ensure uptime notification is sent only once
 
 /**
+ * Debug logging function - only logs when DEBUG_ENABLED is true
+ */
+function debugLog(message, ...args) {
+  if (DEBUG_ENABLED) {
+    console.log(`[DEBUG] ${message}`, ...args);
+  }
+}
+
+/**
  * Send Discord notification via webhook
  */
 async function sendDiscordNotification(message) {
   if (!DISCORD_ENABLED || !DISCORD_WEBHOOK_URL) {
-    console.log("Discord notifications disabled or webhook URL not configured");
+    debugLog("Discord notifications disabled or webhook URL not configured");
     return;
   }
 
@@ -71,7 +83,7 @@ async function sendDiscordNotification(message) {
   } catch (error) {
     console.error("Failed to send Discord notification:", error.message);
     if (error.response) {
-      console.error("Discord API Error:", error.response.data);
+      debugLog("Discord API Error:", error.response.data);
     }
   }
 }
@@ -81,7 +93,7 @@ async function sendDiscordNotification(message) {
  */
 async function sendSmsNotification(message) {
   if (!TWILIO_ENABLED) {
-    console.log("Twilio SMS notifications disabled");
+    debugLog("Twilio SMS notifications disabled");
     return;
   }
 
@@ -95,7 +107,7 @@ async function sendSmsNotification(message) {
   } catch (error) {
     console.error("Failed to send SMS:", error.message);
     if (error.response) {
-      console.error("Twilio API Error:", error.response.data);
+      debugLog("Twilio API Error:", error.response.data);
     }
   }
 }
@@ -192,7 +204,7 @@ async function checkCoffeeMachineStatus() {
         uptimeNotificationSent = true;
       }
 
-      console.log(
+      debugLog(
         `Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${TEMPERATURE_VARIANCE}°C), Uptime: ${uptimeMinutes} minutes`
       );
 
@@ -212,7 +224,7 @@ async function checkCoffeeMachineStatus() {
       if (isMachineOnline) {
         handleMachineOffline();
       } else {
-        console.log(
+        debugLog(
           `Coffee machine API at ${COFFEE_MACHINE_API_URL} is currently offline. Retrying...`
         );
       }
@@ -231,7 +243,7 @@ function restartPolling(newInterval) {
     clearInterval(currentIntervalId);
   }
   currentIntervalId = setInterval(poll, newInterval);
-  console.log(`Polling interval changed to ${newInterval / 1000} seconds`);
+  debugLog(`Polling interval changed to ${newInterval / 1000} seconds`);
 }
 
 /**
@@ -260,7 +272,7 @@ async function poll() {
  */
 async function startMonitoring() {
   console.log(`Starting coffee machine monitoring for ${COFFEE_MACHINE_API_URL}...`);
-  console.log(`Initial polling interval: ${OFFLINE_POLLING_INTERVAL_MS / 1000} seconds (machine assumed offline)`);
+  debugLog(`Initial polling interval: ${OFFLINE_POLLING_INTERVAL_MS / 1000} seconds (machine assumed offline)`);
 
   // Initial check immediately
   await poll();
@@ -287,5 +299,6 @@ module.exports = {
   TWILIO_PHONE_NUMBER,
   YOUR_PHONE_NUMBER,
   MAX_UPTIME_MS,
-  UPTIME_EXCEEDED_ENABLED
+  UPTIME_EXCEEDED_ENABLED,
+  DEBUG_ENABLED
 };
