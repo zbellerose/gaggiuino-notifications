@@ -64,6 +64,9 @@ OFFLINE_POLLING_INTERVAL_MS=30000
 # Restart delay after notification (in milliseconds, 30 minutes default)
 RESTART_DELAY_MS=1800000
 
+# Startup delay before temperature monitoring (in milliseconds, 2 minutes default)
+STARTUP_DELAY_MS=120000
+
 # Maximum uptime before warning (in milliseconds, 45 minutes default)
 MAX_UPTIME_MS=2700000
 
@@ -73,6 +76,15 @@ UPTIME_EXCEEDED_ENABLED=true
 # Debug Settings
 DEBUG=false                    # Set to 'true' for verbose logging
 ```
+
+### Startup Delay
+
+The `STARTUP_DELAY_MS` setting prevents false temperature notifications during the initial warm-up phase:
+
+- **Default**: 2 minutes (120,000 ms)
+- **Purpose**: Avoids notifications from temperature spikes during startup
+- **Behavior**: Temperature monitoring begins only after this delay
+- **Debug**: Shows countdown when delay is active
 
 ## 🔗 Discord Webhook Setup
 

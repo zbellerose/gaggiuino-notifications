@@ -34,6 +34,9 @@ const OFFLINE_POLLING_INTERVAL_MS = parseInt(process.env.OFFLINE_POLLING_INTERVA
 // Restart delay after notification (30 minutes default)
 const RESTART_DELAY_MS = parseInt(process.env.RESTART_DELAY_MS) || 30 * 60 * 1000;
 
+// Startup delay before temperature monitoring (2 minutes default)
+const STARTUP_DELAY_MS = parseInt(process.env.STARTUP_DELAY_MS) || 2 * 60 * 1000;
+
 // Uptime monitoring (45 minutes default)
 const MAX_UPTIME_MS = parseInt(process.env.MAX_UPTIME_MS) || 45 * 60 * 1000;
 
@@ -43,6 +46,7 @@ const UPTIME_EXCEEDED_ENABLED = process.env.UPTIME_EXCEEDED_ENABLED === 'true';
 // Constants
 const MAX_UPTIME_MINUTES = MAX_UPTIME_MS / 60000;
 const RESTART_DELAY_SECONDS = RESTART_DELAY_MS / 1000;
+const STARTUP_DELAY_SECONDS = STARTUP_DELAY_MS / 1000;
 
 const client = new twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
@@ -141,6 +145,7 @@ function handleMachineOnline() {
   uptimeStartTime = Date.now();
   uptimeNotificationSent = false;
   restartPolling(ONLINE_POLLING_INTERVAL_MS);
+  debugLog(`Switched to online polling interval: ${ONLINE_POLLING_INTERVAL_MS / 1000} seconds`);
 }
 
 /**
@@ -152,6 +157,7 @@ function handleMachineOffline() {
   uptimeStartTime = null;
   uptimeNotificationSent = false;
   restartPolling(OFFLINE_POLLING_INTERVAL_MS);
+  debugLog(`Switched to offline polling interval: ${OFFLINE_POLLING_INTERVAL_MS / 1000} seconds`);
 }
 
 /**
@@ -184,7 +190,9 @@ function isTemperatureInRange(currentTemp, targetTemp) {
  */
 async function checkCoffeeMachineStatus() {
   try {
-    const response = await axios.get(COFFEE_MACHINE_API_URL);
+    const response = await axios.get(COFFEE_MACHINE_API_URL, {
+      timeout: 10000 // 10 second timeout
+    });
     const data = response.data;
 
     if (Array.isArray(data) && data.length > 0) {
@@ -209,8 +217,11 @@ async function checkCoffeeMachineStatus() {
         `Current Temp: ${currentTemp}°C, Target Temp: ${targetTemp}°C (Variance: ±${TEMPERATURE_VARIANCE}°C), Uptime: ${uptimeMinutes} minutes (${uptimeSeconds} seconds)`
       );
 
-      // Check if target temperature is reached
-      if (isTemperatureInRange(currentTemp, targetTemp) && !notificationSent) {
+      // Check if target temperature is reached (only after startup delay)
+      const uptimeMs = uptimeSeconds * 1000;
+      if (uptimeMs < STARTUP_DELAY_MS) {
+        debugLog(`Startup delay active: ${Math.ceil((STARTUP_DELAY_MS - uptimeMs) / 1000)} seconds remaining before temperature monitoring begins`);
+      } else if (isTemperatureInRange(currentTemp, targetTemp) && !notificationSent) {
         console.log(`Coffee machine is within target temperature range!`);
         await sendNotification("Hey! Your machine is at the target temp.");
         notificationSent = true;
@@ -220,8 +231,10 @@ async function checkCoffeeMachineStatus() {
     }
     return false;
   } catch (error) {
-    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
-      // Machine is offline
+    const offlineErrorCodes = ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"];
+    
+    if (error.code in offlineErrorCodes) {
+      // Machine is offline or unreachable
       if (isMachineOnline) {
         handleMachineOffline();
       } else {
@@ -301,5 +314,6 @@ module.exports = {
   YOUR_PHONE_NUMBER,
   MAX_UPTIME_MS,
   UPTIME_EXCEEDED_ENABLED,
-  DEBUG_ENABLED
+  DEBUG_ENABLED,
+  STARTUP_DELAY_MS
 };
