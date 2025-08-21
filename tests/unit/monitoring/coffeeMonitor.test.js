@@ -166,7 +166,66 @@ describe('Coffee Monitor', () => {
         'Hey! Your machine is at the target temp.'
       );
       expect(mockStateManager.setNotificationSent).toHaveBeenCalledWith(true);
-      expect(result).toBe(true);
+      expect(result).toBe(false); // Should return false because uptime notification not sent yet
+    });
+
+    test('should continue monitoring temperature even after uptime notification is sent', async () => {
+      // Mock API response
+      mockCoffeeApiService.checkCoffeeMachineStatus.mockResolvedValue({
+        success: true,
+        data: [{
+          temperature: '90.0',
+          targetTemperature: '95.0',
+          upTime: '3000' // 50 minutes (exceeds uptime limit)
+        }]
+      });
+
+      // Mock state manager functions
+      mockStateManager.getMachineOnlineStatus.mockReturnValue(true);
+      mockStateManager.getUptimeNotificationSent.mockReturnValue(true); // Uptime notification already sent
+      mockStateManager.getNotificationSent.mockReturnValue(false); // Temperature notification not sent
+
+      // Mock temperature monitor
+      mockTemperatureMonitor.checkUptimeLimit.mockReturnValue(false);
+      mockTemperatureMonitor.isTargetTemperatureReached.mockReturnValue({
+        reached: false,
+        startupDelayRemaining: 0
+      });
+
+      const result = await coffeeMonitor.checkCoffeeMachineStatus();
+
+      expect(result).toBe(false); // Should continue monitoring temperature
+      expect(mockLogger.debugLog).toHaveBeenCalledWith(
+        "Uptime notification sent, but continuing to monitor temperature."
+      );
+    });
+
+    test('should return true when both temperature and uptime notifications are sent', async () => {
+      // Mock API response
+      mockCoffeeApiService.checkCoffeeMachineStatus.mockResolvedValue({
+        success: true,
+        data: [{
+          temperature: '95.0',
+          targetTemperature: '95.0',
+          upTime: '3000' // 50 minutes (exceeds uptime limit)
+        }]
+      });
+
+      // Mock state manager functions
+      mockStateManager.getMachineOnlineStatus.mockReturnValue(true);
+      mockStateManager.getUptimeNotificationSent.mockReturnValue(true); // Uptime notification sent
+      mockStateManager.getNotificationSent.mockReturnValue(true); // Temperature notification sent
+
+      // Mock temperature monitor
+      mockTemperatureMonitor.checkUptimeLimit.mockReturnValue(false);
+      mockTemperatureMonitor.isTargetTemperatureReached.mockReturnValue({
+        reached: false,
+        startupDelayRemaining: 0
+      });
+
+      const result = await coffeeMonitor.checkCoffeeMachineStatus();
+
+      expect(result).toBe(true); // Should stop monitoring when both notifications sent
     });
 
     test('should handle startup delay correctly', async () => {

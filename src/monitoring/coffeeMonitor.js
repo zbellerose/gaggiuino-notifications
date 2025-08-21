@@ -67,12 +67,34 @@ async function checkCoffeeMachineStatus() {
         
         if (tempCheck.startupDelayRemaining > 0) {
           debugLog(`Startup delay active: ${tempCheck.startupDelayRemaining} seconds remaining before temperature monitoring begins`);
-        } else if (tempCheck.reached) {
+        } else if (tempCheck.reached && !getNotificationSent()) {
           console.log(`Coffee machine is within target temperature range!`);
           await sendNotification("Hey! Your machine is at the target temp.");
           setNotificationSent(true);
-          console.log("Stopping polling as target temperature is reached.");
+        }
+
+        // Continue monitoring until both conditions are met:
+        // 1. Temperature notification sent OR temperature not yet reached
+        // 2. Uptime notification sent OR uptime limit not yet exceeded
+        // Temperature and uptime monitoring are completely independent
+        
+        const isTemperatureMonitoringComplete = getNotificationSent();
+        const isUptimeMonitoringComplete = getUptimeNotificationSent();
+        
+        // Only stop polling if both monitoring tasks are complete
+        if (isTemperatureMonitoringComplete && isUptimeMonitoringComplete) {
+          console.log("Both temperature and uptime notifications sent. Stopping polling.");
           return true;
+        }
+        
+        // If uptime notification is sent but temp not reached, continue monitoring temp
+        if (isUptimeMonitoringComplete && !isTemperatureMonitoringComplete) {
+          debugLog("Uptime notification sent, but continuing to monitor temperature.");
+        }
+        
+        // If temp notification is sent but uptime not exceeded, continue monitoring uptime  
+        if (isTemperatureMonitoringComplete && !isUptimeMonitoringComplete) {
+          debugLog("Temperature notification sent, but continuing to monitor uptime.");
         }
       }
       return false;
@@ -109,11 +131,11 @@ async function checkCoffeeMachineStatus() {
  * Main polling function
  */
 async function poll() {
-  const targetReached = await checkCoffeeMachineStatus();
-  if (targetReached) {
+  const shouldStopPolling = await checkCoffeeMachineStatus();
+  if (shouldStopPolling) {
     clearCurrentInterval();
     
-    console.log(`Target temperature reached! Starting ${RESTART_DELAY_SECONDS} second timer...`);
+    console.log(`Monitoring complete. Starting ${RESTART_DELAY_SECONDS} second timer before restarting...`);
     
     setTimeout(() => {
       console.log(`${RESTART_DELAY_SECONDS} seconds have passed. Restarting monitoring...`);
