@@ -231,9 +231,10 @@ async function checkCoffeeMachineStatus() {
     }
     return false;
   } catch (error) {
-    const offlineErrorCodes = ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"];
+    const offlineErrorCodes = ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EHOSTUNREACH"];
     
-    if (error.code in offlineErrorCodes) {
+    // Check for timeout errors (axios timeout doesn't have error.code)
+    if (offlineErrorCodes.includes(error.code) || error.message.includes('timeout')) {
       // Machine is offline or unreachable
       if (isMachineOnline) {
         handleMachineOffline();
