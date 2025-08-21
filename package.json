@@ -1,17 +1,22 @@
 {
-  "name": "coffee-machine-notifier",
+  "name": "gaggiuino-notifications",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Smart notification system for Gaggiuino coffee machines",
+  "main": "notification.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "axios": "^1.11.0",
+    "axios": "^1.6.0",
     "dotenv": "^17.2.1",
-    "twilio": "^5.8.0"
-  }
+    "twilio": "^4.19.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": ["coffee", "gaggiuino", "notifications", "monitoring", "gaggia"],
+  "author": "Zackery Bellerose",
+  "license": "MIT"
 }

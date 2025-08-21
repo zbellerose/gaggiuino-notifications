@@ -239,6 +239,9 @@ async function checkCoffeeMachineStatus() {
       if (isMachineOnline) {
         handleMachineOffline();
       } else {
+        if (currentIntervalId) {
+          restartPolling(OFFLINE_POLLING_INTERVAL_MS);
+        }
         debugLog(
           `Coffee machine API at ${COFFEE_MACHINE_API_URL} is currently offline. Retrying...`
         );
@@ -289,15 +292,20 @@ async function startMonitoring() {
   console.log(`Starting coffee machine monitoring for ${COFFEE_MACHINE_API_URL}...`);
   debugLog(`Initial polling interval: ${OFFLINE_POLLING_INTERVAL_MS / 1000} seconds (machine assumed offline)`);
 
-  // Initial check immediately
-  await poll();
-
-  // Start with offline polling interval
+  // Reset state to ensure clean start
+  resetMonitoringState();
+  
+  // Start with offline polling interval first
   currentIntervalId = setInterval(poll, OFFLINE_POLLING_INTERVAL_MS);
+  
+  // Then do initial check
+  await poll();
 }
 
-// Start the monitoring process
-startMonitoring();
+// Start the monitoring process (only if not in test environment)
+if (process.env.NODE_ENV !== 'test') {
+  startMonitoring();
+}
 
 // Export functions for testing
 module.exports = {
@@ -305,6 +313,8 @@ module.exports = {
   sendSmsNotification,
   sendNotification,
   checkCoffeeMachineStatus,
+  resetMonitoringState,
+  startMonitoring,
   TEMPERATURE_VARIANCE,
   DISCORD_ENABLED,
   TWILIO_ENABLED,
