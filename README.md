@@ -1,15 +1,14 @@
 # ☕ Gaggiuino Notifications
 
-A smart notification system that monitors your gaggiuino enabled coffee machine's temperature and uptime, sending alerts via Discord webhooks and SMS when your coffee is ready or when the machine has been running too long.
+A comprehensive monitoring system for Gaggiuino coffee machines. Features intelligent temperature and uptime monitoring with multi-platform notifications via Discord and SMS.
 
 ## 🚀 Features
 
-- **🌡️ Temperature Monitoring**: Notifies you when your coffee machine reaches target temperature (±0.5°C variance)
-- **⏰ Uptime Monitoring**: Warns you if the machine runs longer than a configurable threshold to save energy
-- **📱 Multi-Platform Notifications**: Discord webhooks + Twilio SMS
-- **🔄 Auto-Restart**: Automatically restarts monitoring after a configurable delay
-- **⚡ Smart Polling**: Configurable intervals that adapt to machine status
-- **🧪 Testing Suite**: Comprehensive testing without needing the actual machine
+- **🌡️ Smart Temperature Monitoring**: Notifies when target temperature is reached with configurable variance
+- **⏰ Intelligent Uptime Tracking**: Energy-saving alerts when machine runs too long
+- **📱 Multi-Platform Notifications**: Discord webhooks + Twilio SMS support
+- **🔄 Auto-Restart Monitoring**: Automatically resumes after configurable delays
+- **⚡ Adaptive Polling**: Dynamic intervals based on machine online/offline status
 
 ## 📋 Prerequisites
 
@@ -139,35 +138,41 @@ TWILIO_ENABLED=false  # Set to true after A2P approval
 ### Start Monitoring
 
 ```bash
-node notification.js
+npm start
 ```
 
-### Run Tests
+### Start with PM2 (Production)
+
+For production deployments, it's recommended to use PM2 to manage the application process:
 
 ```bash
-node test-notifications.js
+# Install PM2 globally (if not already installed)
+npm install -g pm2
+
+# Start the application with PM2
+pm2 start src/index.js --name "coffee-monitor"
+
+# Start PM2 on system boot
+pm2 startup
+pm2 save
 ```
 
-## 🧪 Testing
+### Running Tests
 
-The system includes a comprehensive testing suite that simulates coffee machine scenarios:
+```bash
+# Run all tests
+npm test
 
-- **Temperature monitoring** - Test target temperature detection
-- **Uptime monitoring** - Test uptime warning notifications
-- **Discord integration** - Test webhook notifications
-- **SMS integration** - Test Twilio notifications (when enabled)
-- **Full brew cycle** - Simulate complete brewing process
+# Run specific test categories
+npm test -- tests/unit/monitoring/temperatureMonitor.test.js
+npm test -- tests/unit/monitoring/stateManager.test.js
+npm test -- tests/unit/services/
 
-### Test Commands
+# Run tests with verbose output
+npm test -- --verbose
 
-```javascript
-// In the test environment
-setSimulatedTemperature(85)     // Set temperature to 85°C
-setSimulatedTarget(90)          // Set target to 90°C
-setSimulatedUptime(50)          // Set uptime to 50 minutes
-setSimulatedOnline(true)        // Set machine online
-resetAllFlags()                  // Reset notification flags
-showSimulatedStatus()            // Show current status
+# Run tests in watch mode during development
+npm test -- --watch
 ```
 
 ## 📊 How It Works
@@ -281,21 +286,116 @@ Enable detailed logging by setting `DEBUG=true` in your `.env` file. This will s
 [DEBUG] Coffee machine API is currently offline. Retrying...
 ```
 
-## 📁 File Structure
+## 📁 Project Structure
 
 ```
 coffee-machine-notifier/
-├── notification.js          # Main monitoring application
-├── test-notifications.js    # Testing suite
-├── .env                     # Environment configuration (create this)
-├── env.example             # Example environment file
-├── package.json            # Node.js dependencies
-└── README.md               # This file
+├── src/                     # Source code
+│   ├── config/             # Configuration management
+│   │   ├── constants.js    # Environment variables and constants
+│   │   └── index.js        # Config exports
+│   ├── monitoring/         # Core monitoring logic
+│   │   ├── coffeeMonitor.js      # Main monitoring orchestration
+│   │   ├── stateManager.js       # Application state management
+│   │   └── temperatureMonitor.js # Temperature and uptime logic
+│   ├── services/           # External service integrations
+│   │   ├── coffeeApiService.js   # Coffee machine API client
+│   │   ├── discordService.js     # Discord webhook notifications
+│   │   ├── notificationService.js # Notification orchestration
+│   │   └── twilioService.js      # SMS notifications
+│   ├── utils/              # Utility functions
+│   │   └── logger.js       # Debug logging utilities
+│   └── index.js            # Application entry point
+├── tests/                  # Test suites
+│   ├── unit/               # Unit tests
+│   │   ├── monitoring/     # Monitoring logic tests
+│   │   ├── services/       # Service integration tests
+│   │   └── utils/          # Utility function tests
+│   └── setup.js            # Test configuration
+├── .env                    # Environment configuration (create this)
+├── env.example            # Example environment file
+├── package.json           # Dependencies and scripts
+├── jest.config.js         # Test configuration
+└── README.md              # Documentation
+```
+
+### Key Components
+
+- **🎯 Entry Point** (`src/index.js`) - Application startup and lifecycle
+- **📡 Coffee Monitor** (`src/monitoring/coffeeMonitor.js`) - Main monitoring logic
+- **🏪 State Manager** (`src/monitoring/stateManager.js`) - Application state and intervals
+- **🌡️ Temperature Monitor** (`src/monitoring/temperatureMonitor.js`) - Temperature and uptime validation
+- **🔔 Notification Service** (`src/services/notificationService.js`) - Multi-platform notification dispatch
+- **🌐 API Service** (`src/services/coffeeApiService.js`) - Coffee machine communication
+- **⚙️ Configuration** (`src/config/`) - Environment and settings management
+
+## 🔧 Development
+
+### Prerequisites
+
+```bash
+# Node.js 14+ required
+node --version
+
+# Install dependencies
+npm install
+```
+
+### Development Workflow
+
+```bash
+# Start development with auto-restart
+npm run dev
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Run tests with coverage
+npm test -- --coverage
+
+# Lint code
+npm run lint
+
+# Format code
+npm run format
+```
+
+### Adding New Features
+
+1. **Create tests first** - Follow TDD approach
+2. **Implement feature** - Keep functions small and focused
+3. **Update documentation** - Keep README current
+4. **Run full test suite** - Ensure nothing breaks
+
+### Debugging
+
+```bash
+# Run with Node.js debugger
+node --inspect src/index.js
+
+# Test specific scenarios
+npm test -- --grep "temperature monitoring"
 ```
 
 ## 🤝 Contributing
 
-Feel free to submit issues, feature requests, or pull requests to improve the system!
+We welcome contributions! Please follow these steps:
+
+1. **Fork the repository**
+2. **Create a feature branch**
+3. **Write tests** for your changes
+4. **Ensure all tests pass** (`npm test`)
+5. **Update documentation** if needed
+6. **Commit your changes**
+7. **Push to the branch**
+8. **Open a Pull Request**
+
+### Code Standards
+
+- **📝 Functions should be documented**
+- **🎯 Keep functions small and focused**
+- **🔄 Follow existing patterns**
+- **⚡ Optimize for readability over cleverness**
 
 ## 📄 License
 
