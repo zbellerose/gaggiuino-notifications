@@ -2,22 +2,22 @@
 
 A comprehensive monitoring system for Gaggiuino coffee machines. Features intelligent temperature and uptime monitoring with multi-platform notifications via Discord and SMS.
 
-## 🚀 Features
+## Features
 
-- **🌡️ Smart Temperature Monitoring**: Notifies when target temperature is reached with configurable variance
-- **⏰ Intelligent Uptime Tracking**: Energy-saving alerts when machine runs too long
-- **📱 Multi-Platform Notifications**: Discord webhooks + Twilio SMS support
-- **🔄 Auto-Restart Monitoring**: Automatically resumes after configurable delays
-- **⚡ Adaptive Polling**: Dynamic intervals based on machine online/offline status
+- **Smart Temperature Monitoring**: Notifies when target temperature is reached with configurable variance
+- **Intelligent Uptime Tracking**: Energy-saving alerts when machine runs too long
+- **Multi-Platform Notifications**: Discord webhooks + Twilio SMS support
+- **Auto-Restart Monitoring**: Automatically resumes after configurable delays
+- **Adaptive Polling**: Dynamic intervals based on machine online/offline status
 
-## 📋 Prerequisites
+## Prerequisites
 
 - **Node.js** (v14 or higher)
 - **Coffee machine with API** (e.g., Gaggiuino)
 - **Discord account** (for webhook notifications)
 - **Twilio account** (optional, for SMS notifications)
 
-## 🛠️ Installation
+## Installation
 
 1. **Clone or download** this repository
 2. **Install dependencies**:
@@ -29,7 +29,7 @@ A comprehensive monitoring system for Gaggiuino coffee machines. Features intell
    cp env.example .env
    ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables (`.env` file)
 
@@ -85,7 +85,7 @@ The `STARTUP_DELAY_MS` setting prevents false temperature notifications during t
 - **Behavior**: Temperature monitoring begins only after this delay
 - **Debug**: Shows countdown when delay is active
 
-## 🔗 Discord Webhook Setup
+## Discord Webhook Setup
 
 ### Step 1: Create a Discord Webhook
 
@@ -108,7 +108,7 @@ DISCORD_USER_ID=your_discord_user_id
 DISCORD_ENABLED=true
 ```
 
-## 📱 Twilio SMS Setup (Optional)
+## Twilio SMS Setup (Optional)
 
 ### Step 1: Create Twilio Account
 
@@ -133,7 +133,7 @@ YOUR_PHONE_NUMBER=+1234567890
 TWILIO_ENABLED=false  # Set to true after A2P approval
 ```
 
-## 🚀 Usage
+## Usage
 
 ### Start Monitoring
 
@@ -175,7 +175,7 @@ npm test -- --verbose
 npm test -- --watch
 ```
 
-## 📊 How It Works
+## How It Works
 
 ### 1. **Startup**
 - Assumes machine is offline
@@ -200,7 +200,7 @@ npm test -- --watch
 - Automatically restarts monitoring
 - Resets all flags for next brew session
 
-## 🔧 Customization
+## Customization
 
 ### Adjust Polling Intervals
 
@@ -246,7 +246,7 @@ RESTART_DELAY_MS=60000   # 1 minute
 RESTART_DELAY_MS=3600000 # 1 hour
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -286,7 +286,7 @@ Enable detailed logging by setting `DEBUG=true` in your `.env` file. This will s
 [DEBUG] Coffee machine API is currently offline. Retrying...
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 coffee-machine-notifier/
@@ -321,15 +321,15 @@ coffee-machine-notifier/
 
 ### Key Components
 
-- **🎯 Entry Point** (`src/index.js`) - Application startup and lifecycle
-- **📡 Coffee Monitor** (`src/monitoring/coffeeMonitor.js`) - Main monitoring logic
-- **🏪 State Manager** (`src/monitoring/stateManager.js`) - Application state and intervals
-- **🌡️ Temperature Monitor** (`src/monitoring/temperatureMonitor.js`) - Temperature and uptime validation
-- **🔔 Notification Service** (`src/services/notificationService.js`) - Multi-platform notification dispatch
-- **🌐 API Service** (`src/services/coffeeApiService.js`) - Coffee machine communication
-- **⚙️ Configuration** (`src/config/`) - Environment and settings management
+- **Entry Point** (`src/index.js`) - Application startup and lifecycle
+- **Coffee Monitor** (`src/monitoring/coffeeMonitor.js`) - Main monitoring logic
+- **State Manager** (`src/monitoring/stateManager.js`) - Application state and intervals
+- **Temperature Monitor** (`src/monitoring/temperatureMonitor.js`) - Temperature and uptime validation
+- **Notification Service** (`src/services/notificationService.js`) - Multi-platform notification dispatch
+- **API Service** (`src/services/coffeeApiService.js`) - Coffee machine communication
+- **Configuration** (`src/config/`) - Environment and settings management
 
-## 🔧 Development
+## Development
 
 ### Prerequisites
 
@@ -377,7 +377,7 @@ node --inspect src/index.js
 npm test -- --grep "temperature monitoring"
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please follow these steps:
 
@@ -392,16 +392,16 @@ We welcome contributions! Please follow these steps:
 
 ### Code Standards
 
-- **📝 Functions should be documented**
-- **🎯 Keep functions small and focused**
-- **🔄 Follow existing patterns**
-- **⚡ Optimize for readability over cleverness**
+- **Functions should be documented**
+- **Keep functions small and focused**
+- **Follow existing patterns**
+- **Optimize for readability over cleverness**
 
-## 📄 License
+## License
 
 This project is open source and available under the [MIT License](LICENSE).
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Gaggiuino** community for the coffee machine API
 - **Discord** for webhook integration
